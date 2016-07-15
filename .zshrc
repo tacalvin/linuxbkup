@@ -52,7 +52,7 @@ ZSH_THEME="pygmalion"
 plugins=(git)
 
 # User configuration
-
+  export PYTHONPATH=$PYTHONPATH:"/usr/local/lib/python3.5/site-packages:/home/cta/anaconda3/bin"
   export PATH="/home/cta/anaconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl"
 # export MANPATH="/usr/local/man:$MANPATH"
 
@@ -82,6 +82,7 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+alias vi='vim'
 alias ls='ls --color=auto'
 alias cr='sh compile.sh && ./a.out'
 alias crg='sh compile.sh && gdb a.out'
@@ -93,4 +94,4 @@ alias pip='pip3'
 alias s='sudo'
 alias vup='vagrant up'
 alias a='atom'
-
+alias lr='ls -hartl'
