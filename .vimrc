@@ -6,13 +6,11 @@ set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
 Plugin 'VundleVim/Vundle.vim'
 "Plugin 'rip-rip/clang_complete'
-Plugin 'valloric/youcompleteme'
 Plugin 'nathanaelkane/vim-indent-guides'
 Plugin 'vim-airline/vim-airline'
 Plugin 'vim-airline/vim-airline-themes'
 "Plugin 'scrooloose/syntastic'
 Plugin 'ervandew/supertab'
-Plugin 'rust-lang/rust.vim'
 Plugin 'scrooloose/nerdtree'
 call vundle#end()
 filetype on
