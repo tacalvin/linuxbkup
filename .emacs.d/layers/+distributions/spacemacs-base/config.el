@@ -1,6 +1,6 @@
 ;;; config.el --- Spacemacs Base Layer configuration File
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -18,6 +18,7 @@
 ;; Also auto refresh dired, but be quiet about it
 (setq global-auto-revert-non-file-buffers t
       auto-revert-verbose nil)
+(add-to-list 'global-auto-revert-ignore-modes 'Buffer-menu-mode)
 
 ;; Make dired "guess" target directory for some operations, like copy to
 ;; directory visited in other split buffer.
@@ -69,7 +70,7 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
 ;; Edit
 ;; ---------------------------------------------------------------------------
 
-;; start scratch in text mode (usefull to get a faster Emacs load time
+;; Start with the *scratch* buffer in text mode (speeds up Emacs load time,
 ;; because it avoids autoloads of elisp modes)
 (setq initial-major-mode 'text-mode)
 
@@ -134,9 +135,7 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
     ;; but IS available during the subsequent config reloads
     (if (fboundp 'spacemacs/toggle-fullscreen-frame-on)
         (spacemacs/toggle-fullscreen-frame-on)
-      (spacemacs/toggle-frame-fullscreen))
-  (if dotspacemacs-maximized-at-startup
-      (add-hook 'window-setup-hook 'toggle-frame-maximized)))
+      (spacemacs/toggle-frame-fullscreen)))
 
 (setq ns-use-native-fullscreen (not dotspacemacs-fullscreen-use-non-native))
 
@@ -153,9 +152,6 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
 ;; Session
 ;; ---------------------------------------------------------------------------
 
-;; save custom variables in ~/.spacemacs
-(unless (bound-and-true-p custom-file)
-  (setq custom-file (dotspacemacs/location)))
 ;; scratch buffer empty
 (setq initial-scratch-message nil)
 ;; don't create backup~ files
@@ -209,3 +205,7 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
 ;; hook into `hack-local-variables' in order to allow switching spacemacs
 ;; configurations based on local variables
 (add-hook 'hack-local-variables-hook #'spacemacs//run-local-vars-mode-hook)
+
+;; Add buffer reference to internal list of killed buffers on `kill-buffer',
+;; used for restoring recently killed buffers.
+(add-hook 'kill-buffer-hook #'spacemacs//add-buffer-to-killed-list)

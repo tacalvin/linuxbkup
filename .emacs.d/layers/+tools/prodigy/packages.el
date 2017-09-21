@@ -1,6 +1,6 @@
 ;;; packages.el --- Prodigy Layer packages File for Spacemacs
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -17,6 +17,7 @@
     (spacemacs/set-leader-keys "aS" 'prodigy)
     :config
     (evilified-state-evilify prodigy-mode prodigy-mode-map
+      "c" 'prodigy-view-clear-buffer
       "h" 'prodigy-first
       "j" 'prodigy-next
       "k" 'prodigy-prev
@@ -27,4 +28,6 @@
       "L" 'prodigy-start
       "d" 'prodigy-jump-dired
       "g" 'prodigy-jump-magit
-      "Y" 'prodigy-copy-cmd)))
+      "Y" 'prodigy-copy-cmd
+      "R" 'revert-buffer)
+    (evil-define-key 'motion prodigy-view-mode-map (kbd "gf") 'find-file-at-point)))

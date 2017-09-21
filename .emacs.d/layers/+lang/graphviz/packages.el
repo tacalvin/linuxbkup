@@ -1,6 +1,6 @@
 ;;; packages.el --- graphviz layer packages file for Spacemacs.
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: luxbock <opieppo@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -23,6 +23,7 @@
            ("\\.rackdiag\\'"  . graphviz-dot-mode)
            ("\\.dot\\'"       . graphviz-dot-mode)
            ("\\.gv\\'"        . graphviz-dot-mode))
+    :init (setq graphviz-dot-indent-width tab-width)
     :config
     (progn
       (spacemacs|add-toggle graphviz-live-reload
@@ -49,7 +50,7 @@
       (define-key graphviz-dot-mode-map "{" nil)
       (define-key graphviz-dot-mode-map "}" nil))))
 
-(defun graphviz/post-init-org ()
+(defun graphviz/pre-init-org ()
   (spacemacs|use-package-add-hook org
     :post-config
     (progn

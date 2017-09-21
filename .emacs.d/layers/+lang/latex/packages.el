@@ -1,6 +1,6 @@
 ;;; packages.el --- Latex Layer packages File for Spacemacs
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -10,22 +10,22 @@
 ;;; License: GPLv3
 
 (setq latex-packages
-  '(
-    auctex
-    (auctex-latexmk :toggle (string= "LatexMk" latex-build-command))
-    company
-    (company-auctex :toggle (configuration-layer/package-usedp 'company))
-    evil-matchit
-    (reftex :location built-in)
-    flycheck
-    flyspell
-    ggtags
-    helm-gtags
-    smartparens
-    typo
-    yasnippet
-    which-key
-    ))
+      '(
+        auctex
+        (auctex-latexmk :toggle (string= "LatexMk" latex-build-command))
+        (company-auctex :requires company)
+        evil-matchit
+        (reftex :location built-in)
+        flycheck
+        flyspell
+        ggtags
+        helm-gtags
+        (magic-latex-buffer :toggle latex-enable-magic)
+        smartparens
+        typo
+        yasnippet
+        which-key
+        ))
 
 (defun latex/init-auctex ()
   (use-package tex
@@ -82,11 +82,19 @@
             dotspacemacs-major-mode-leader-key 'TeX-command-master))
         (when latex-enable-folding
           (spacemacs/set-leader-keys-for-major-mode mode
+            ;; the following commands are mostly not autoloaded, but that's fine
+            ;; because `TeX-fold-mode' is added to `LaTeX-mode-hook'
             "z=" 'TeX-fold-math
             "zb" 'TeX-fold-buffer
+            "zB" 'TeX-fold-clearout-buffer
             "ze" 'TeX-fold-env
+            "zI" 'TeX-fold-clearout-item
             "zm" 'TeX-fold-macro
-            "zr" 'TeX-fold-region))
+            "zp" 'TeX-fold-paragraph
+            "zP" 'TeX-fold-clearout-paragraph
+            "zr" 'TeX-fold-region
+            "zR" 'TeX-fold-clearout-region
+            "zz" 'TeX-fold-dwim))
         (spacemacs/declare-prefix-for-mode mode "mh" "help")
         (spacemacs/declare-prefix-for-mode mode "mx" "text/fonts")
         (spacemacs/declare-prefix-for-mode mode "mz" "fold"))
@@ -130,25 +138,23 @@
         :post-config
         (auctex-latexmk-setup)))))
 
-(defun latex/post-init-company ()
-  (spacemacs|add-company-hook LaTeX-mode))
-
 (defun latex/init-company-auctex ()
   (use-package company-auctex
     :defer t
-    :init
-    (progn
-      (push 'company-auctex-labels company-backends-LaTeX-mode)
-      (push 'company-auctex-bibs company-backends-LaTeX-mode)
-      (push '(company-auctex-macros
-              company-auctex-symbols
-              company-auctex-environments) company-backends-LaTeX-mode))))
+    :init (spacemacs|add-company-backends
+            :backends
+            company-auctex-labels
+            company-auctex-bibs
+            (company-auctex-macros
+             company-auctex-symbols
+             company-auctex-environments)
+            :modes LaTeX-mode)))
 
 (defun latex/post-init-evil-matchit ()
   (add-hook 'LaTeX-mode-hook 'evil-matchit-mode))
 
 (defun latex/post-init-flycheck ()
-  (spacemacs/add-flycheck-hook 'LaTeX-mode))
+  (spacemacs/enable-flycheck 'LaTeX-mode))
 
 (defun latex/post-init-flyspell ()
   (spell-checking/add-flyspell-hook 'LaTeX-mode-hook))
@@ -192,5 +198,17 @@
   (add-hook 'LaTeX-mode-hook 'spacemacs/load-yasnippet))
 
 (defun latex/post-init-which-key ()
-  (push '("\\`latex/font-\\(.+\\)\\'" . "\\1")
-        which-key-description-replacement-alist))
+  (push '((nil . "\\`latex/font-\\(.+\\)\\'") . (nil . "\\1"))
+        which-key-replacement-alist))
+
+(defun latex/init-magic-latex-buffer ()
+  (use-package magic-latex-buffer
+    :defer t
+    :init
+    (progn
+      (add-hook 'LaTeX-mode-hook 'magic-latex-buffer)
+      (setq magic-latex-enable-block-highlight t
+            magic-latex-enable-suscript t
+            magic-latex-enable-pretty-symbols t
+            magic-latex-enable-block-align nil
+            magic-latex-enable-inline-image nil))))

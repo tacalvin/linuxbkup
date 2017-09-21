@@ -1,6 +1,6 @@
 ;;; config.el --- Spacemacs Bootstrap Layer configuration File
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -12,8 +12,9 @@
 ;; Thanks to `editorconfig-emacs' for many of these
 (defvar spacemacs--indent-variable-alist
   ;; Note that derived modes must come before their sources
-  '(((awk-mode c-mode c++-mode java-mode groovy-mode
+  '(((awk-mode c-mode c++-mode java-mode
       idl-mode java-mode objc-mode pike-mode) . c-basic-offset)
+    (groovy-mode . groovy-indent-offset)
     (python-mode . python-indent-offset)
     (cmake-mode . cmake-tab-width)
     (coffee-mode . coffee-tab-width)

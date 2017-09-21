@@ -1,6 +1,6 @@
 ;;; packages.el --- Spacemacs Evil Layer packages File
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -16,6 +16,7 @@
         evil-exchange
         evil-iedit-state
         evil-indent-plus
+        evil-lion
         evil-lisp-state
         ;; for testing purpose, contribute by reporting bugs and sending PRs
         ;; to https://github.com/gabesoft/evil-mc
@@ -47,7 +48,7 @@
       (setq anzu-search-threshold 1000
             anzu-cons-mode-line-p nil)
       ;; powerline integration
-      (when (configuration-layer/package-usedp 'spaceline)
+      (when (configuration-layer/package-used-p 'spaceline)
         (defun spacemacs/anzu-update-mode-line (here total)
           "Custom update function which does not propertize the status."
           (when anzu--state
@@ -98,6 +99,18 @@
   (use-package evil-indent-plus
     :init (evil-indent-plus-default-bindings)))
 
+(defun spacemacs-evil/init-evil-lion ()
+  (use-package evil-lion
+    :init
+    (progn
+      ;; Override the default keys, as they collide
+      (setq evil-lion-left-align-key nil
+            evil-lion-right-align-key nil)
+      (spacemacs/set-leader-keys
+        "xal" 'evil-lion-left
+        "xaL" 'evil-lion-right)
+      (evil-lion-mode))))
+
 (defun spacemacs-evil/init-evil-lisp-state ()
   (use-package evil-lisp-state
     :init (setq evil-lisp-state-global t)
@@ -107,12 +120,11 @@
   (use-package evil-mc
     :defer t
     :init
-    ;; remove emc prefix when there is not multiple cursors
-    (setq evil-mc-mode-line
-          `(:eval (when (> (evil-mc-get-cursor-count) 1)
-                    (format ,(propertize " %s:%d" 'face 'cursor)
-                            evil-mc-mode-line-prefix
-                            (evil-mc-get-cursor-count)))))))
+    (progn
+      ;; evil-mc is not compatible with the paste transient state
+      (define-key evil-normal-state-map "p" 'spacemacs/evil-mc-paste-after)
+      (define-key evil-normal-state-map "P" 'spacemacs/evil-mc-paste-before)
+      (setq evil-mc-one-cursor-show-mode-line-text nil))))
 
 ;; other commenting functions in funcs.el with keybinds in keybindings.el
 (defun spacemacs-evil/init-evil-nerd-commenter ()
@@ -192,7 +204,7 @@
         ("+" evil-numbers/inc-at-pt)
         ("=" evil-numbers/inc-at-pt)
         ("-" evil-numbers/dec-at-pt)
-        ("q" nil :exit t)) 
+        ("q" nil :exit t))
       (spacemacs/set-leader-keys
         "n+" 'spacemacs/evil-numbers-transient-state/evil-numbers/inc-at-pt
         "n=" 'spacemacs/evil-numbers-transient-state/evil-numbers/inc-at-pt
@@ -259,12 +271,14 @@
     :commands (linum-relative-toggle linum-relative-on)
     :init
     (progn
-      (when (eq dotspacemacs-line-numbers 'relative)
-        (linum-relative-on))
+      (when (or (eq dotspacemacs-line-numbers 'relative)
+                (and (listp dotspacemacs-line-numbers)
+                     (car (spacemacs/mplist-get dotspacemacs-line-numbers
+                                                :relative))))
+        (add-hook 'spacemacs-post-user-config-hook 'linum-relative-on))
       (spacemacs/set-leader-keys "tr" 'spacemacs/linum-relative-toggle))
     :config
-    (progn
-      (setq linum-relative-current-symbol ""))))
+    (setq linum-relative-current-symbol "")))
 
 (defun spacemacs-evil/init-vi-tilde-fringe ()
   (spacemacs|do-after-display-system-init

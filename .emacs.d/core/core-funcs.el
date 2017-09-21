@@ -1,6 +1,6 @@
 ;;; core-funcs.el --- Spacemacs Core File
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -34,14 +34,6 @@
   "Runs `text-mode-hook'. Useful for modes that don't derive from
 `text-mode' but should."
   (run-hooks 'text-mode-hook))
-
-(defun spacemacs//get-package-directory (pkg)
-  "Return the directory of PKG. Return nil if not found."
-  (let ((elpa-dir (file-name-as-directory package-user-dir)))
-    (when (file-exists-p elpa-dir)
-      (let* ((pkg-match (concat "\\`" (symbol-name pkg) "-[0-9]+"))
-             (dir (car (directory-files elpa-dir 'full pkg-match))))
-        (when dir (file-name-as-directory dir))))))
 
 (defun spacemacs/mplist-get (plist prop)
   "Get the values associated to PROP in PLIST, a modified plist.
@@ -145,20 +137,19 @@ The buffer's major mode should be `org-mode'."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "org-mode should be enabled in the current buffer."))
-
-  ;; Make ~SPC ,~ work, reference:
-  ;; http://stackoverflow.com/questions/24169333/how-can-i-emphasize-or-verbatim-quote-a-comma-in-org-mode
-  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n")
-  (org-set-emph-re 'org-emphasis-regexp-components org-emphasis-regexp-components)
-  (setq-local org-emphasis-alist '(("*" bold)
-                                   ("/" italic)
-                                   ("_" underline)
-                                   ("=" org-verbatim verbatim)
-                                   ("~" org-kbd)
-                                   ("+"
-                                    (:strike-through t))))
-  (when (require 'space-doc nil t)
-    (space-doc-mode)))
+  (if (require 'space-doc nil t)
+      (space-doc-mode)
+    ;; Make ~SPC ,~ work, reference:
+    ;; http://stackoverflow.com/questions/24169333/how-can-i-emphasize-or-verbatim-quote-a-comma-in-org-mode
+    (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n")
+    (org-set-emph-re 'org-emphasis-regexp-components org-emphasis-regexp-components)
+    (setq-local org-emphasis-alist '(("*" bold)
+                                     ("/" italic)
+                                     ("_" underline)
+                                     ("=" org-verbatim verbatim)
+                                     ("~" org-kbd)
+                                     ("+"
+                                      (:strike-through t))))))
 
 (defun spacemacs/view-org-file (file &optional anchor-text expand-scope)
   "Open org file and apply visual enchantments.
@@ -177,7 +168,7 @@ If EXPAND-SCOPE is `all' then run `outline-show-all' at the matched line."
     ;; If `anchor-text' is GitHub style link.
     (if (string-prefix-p "#" anchor-text)
         ;; If the toc-org package is loaded.
-        (if (configuration-layer/package-usedp 'toc-org)
+        (if (configuration-layer/package-used-p 'toc-org)
             ;; For each heading. Search the heading that corresponds
             ;; to `anchor-text'.
             (while (and (re-search-forward "^[\\*]+\s\\(.*\\).*$" nil t)
@@ -301,23 +292,36 @@ buffer."
   (let ((message-log-max nil))
     (apply 'message msg args)))
 
+(defun spacemacs/derived-mode-p (mode &rest modes)
+  "Non-nil if MODE is derived from one of MODES."
+  ;; We could have copied the built-in `derived-mode-p' and modified it a bit so
+  ;; it works on arbitrary modes instead of only the current major-mode. We
+  ;; don't do that because then we will need to modify the function if
+  ;; `derived-mode-p' changes.
+  (let ((major-mode mode))
+    (apply #'derived-mode-p modes)))
+
 (defun spacemacs/alternate-buffer (&optional window)
   "Switch back and forth between current and last buffer in the
 current window."
   (interactive)
-  (let ((current-buffer (window-buffer window))
-        (buffer-predicate
-         (frame-parameter (window-frame window) 'buffer-predicate)))
-    ;; switch to first buffer previously shown in this window that matches
-    ;; frame-parameter `buffer-predicate'
+  (let ((current-buffer (window-buffer window)))
+    ;; if no window is found in the windows history, `switch-to-buffer' will
+    ;; default to calling `other-buffer'.
     (switch-to-buffer
-     (or (cl-find-if (lambda (buffer)
-                       (and (not (eq buffer current-buffer))
-                            (or (null buffer-predicate)
-                                (funcall buffer-predicate buffer))))
-                     (mapcar #'car (window-prev-buffers window)))
-         ;; `other-buffer' honors `buffer-predicate' so no need to filter
-         (other-buffer current-buffer t)))))
+     (cl-find-if (lambda (buffer)
+                   (not (eq buffer current-buffer)))
+                 (mapcar #'car (window-prev-buffers window))))))
+
+(defun spacemacs/alternate-window ()
+  "Switch back and forth between current and last window in the
+current frame."
+  (interactive)
+  (let (;; switch to first window previously shown in this frame
+        (prev-window (get-mru-window nil t t)))
+    ;; Check window was not found successfully
+    (unless prev-window (user-error "Last window not found."))
+    (select-window prev-window)))
 
 (defun spacemacs/comint-clear-buffer ()
   (interactive)

@@ -1,6 +1,6 @@
 ;;; packages.el --- Haskell Layer packages File for Spacemacs
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -12,40 +12,33 @@
 (setq haskell-packages
   '(
     cmm-mode
-    company
-    (company-cabal :toggle (configuration-layer/package-usedp 'company))
+    (company-cabal :requires company)
     company-ghci
     company-ghc
     flycheck
-    (flycheck-haskell :toggle (configuration-layer/package-usedp 'flycheck))
+    (flycheck-haskell :requires flycheck)
     ggtags
     ghc
     haskell-mode
     haskell-snippets
     helm-gtags
-    (helm-hoogle :toggle (configuration-layer/package-usedp 'helm))
+    (helm-hoogle :requires helm)
     hindent
     hlint-refactor
     intero
+    (dante :toggle (version<= "25" emacs-version))
     ))
 
 (defun haskell/init-cmm-mode ()
   (use-package cmm-mode
     :defer t))
 
-(defun haskell/post-init-company ()
-  (spacemacs|add-company-hook haskell-mode)
-  (spacemacs|add-company-hook haskell-cabal-mode)
-  (when (eq haskell-completion-backend 'intero)
-    (spacemacs|add-company-hook intero-repl-mode)))
-
 (defun haskell/init-company-cabal ()
   (use-package company-cabal
-    :if (configuration-layer/package-usedp 'company)
     :defer t
-    :init
-    (push '(company-cabal)
-          company-backends-haskell-cabal-mode)))
+    :init (spacemacs|add-company-backends
+            :backends company-cabal
+            :modes haskell-cabal-mode)))
 
 (defun haskell/init-company-ghci ()
   (use-package company-ghci
@@ -61,6 +54,8 @@
 (defun haskell/init-ghc ()
   (use-package ghc
     :defer t))
+
+(defun haskell/init-dante ())
 
 (defun haskell/init-intero ()
   (use-package intero
@@ -79,7 +74,7 @@
       (spacemacs/set-leader-keys-for-major-mode mode "hf" 'helm-hoogle))))
 
 (defun haskell/post-init-flycheck ()
-  (spacemacs/add-flycheck-hook 'haskell-mode))
+  (spacemacs/enable-flycheck 'haskell-mode))
 
 (defun haskell/init-flycheck-haskell ()
   (use-package flycheck-haskell
@@ -100,6 +95,11 @@
       (add-hook 'haskell-cabal-mode-hook
                 'spacemacs//force-haskell-mode-loading)
 
+      ;; Haskell cabal files interact badly with electric-indent-mode
+      ;; note: we cannot add this hook in :config, since haskell-mode might
+      ;; only be loaded after cabal-mode hooks are already run (see add-hook above)
+      (add-hook 'haskell-cabal-mode-hook #'spacemacs-haskell//disable-electric-indent)
+
       (setq
        ;; Use notify.el (if you have it installed) at the end of running
        ;; Cabal commands or generally things worth notifying.
@@ -114,12 +114,6 @@
        haskell-stylish-on-save nil))
     :config
     (progn
-      ;; Haskell main editing mode key bindings.
-      (defun spacemacs/init-haskell-mode ()
-        ;; use only internal indentation system from haskell
-        (if (fboundp 'electric-indent-local-mode)
-            (electric-indent-local-mode -1)))
-
       (defun spacemacs/haskell-interactive-bring ()
         "Bring up the interactive mode for this session without
          switching to it."
@@ -129,7 +123,7 @@
           (display-buffer buffer)))
 
       ;; hooks
-      (add-hook 'haskell-mode-hook 'spacemacs/init-haskell-mode)
+      (add-hook 'haskell-mode-hook #'spacemacs-haskell//disable-electric-indent)
 
       ;; prefixes
       (dolist (mode haskell-modes)
@@ -188,11 +182,10 @@
         "b" 'haskell-debug/break-on-function
         "c" 'haskell-debug/continue
         "d" 'haskell-debug/delete
-        "n" 'haskell-debug/next
-        "N" 'haskell-debug/previous
-        "p" 'haskell-debug/previous
+        "i" 'haskell-debug/step
+        "s" 'haskell-debug/next
+        "S" 'haskell-debug/previous
         "r" 'haskell-debug/refresh
-        "s" 'haskell-debug/step
         "t" 'haskell-debug/trace)
 
       ;; configure C-c C-l so it doesn't throw any errors
@@ -252,8 +245,9 @@
 (defun haskell/init-haskell-snippets ()
   ;; manually load the package since the current implementation is not lazy
   ;; loading friendly (funny coming from the haskell mode :-))
-  (setq haskell-snippets-dir (spacemacs//get-package-directory
-                              'haskell-snippets))
+  (setq haskell-snippets-dir
+        (configuration-layer/get-elpa-package-install-directory
+         'haskell-snippets))
 
   (defun haskell-snippets-initialize ()
     (let ((snip-dir (expand-file-name "snippets" haskell-snippets-dir)))

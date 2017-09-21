@@ -1,6 +1,6 @@
 ;;; packages.el --- Spacemacs Base Layer packages File
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -27,7 +27,10 @@
         evil-visualstar
         ;; some packages need to look for binaries,
         ;; which means the path must be ready by then
-        (exec-path-from-shell :step pre)
+        (exec-path-from-shell :step pre
+                              :toggle (or (spacemacs/system-is-mac)
+                                          (spacemacs/system-is-linux)
+                                          (eq window-system 'x)))
         help-fns+
         (hi-lock :location built-in)
         (holy-mode :location local :step pre)
@@ -45,7 +48,7 @@
         (recentf :location built-in)
         (savehist :location built-in)
         (saveplace :location built-in)
-        spacemacs-theme
+        (spacemacs-theme :location built-in)
         (subword :location built-in)
         (tar-mode :location built-in)
         (uniquify :location built-in)
@@ -53,6 +56,7 @@
         (visual-line-mode :location built-in)
         (whitespace :location built-in)
         (winner :location built-in)
+        (zone :location built-in)
         ))
 
 ;; Initialization of packages
@@ -183,10 +187,8 @@
 
 (defun spacemacs-base/init-exec-path-from-shell ()
   (use-package exec-path-from-shell
-    :init (when (or (spacemacs/system-is-mac)
-                    (spacemacs/system-is-linux)
-                    (memq window-system '(x)))
-            (exec-path-from-shell-initialize))))
+    :demand t
+    :config (exec-path-from-shell-initialize)))
 
 (defun spacemacs-base/init-help-fns+ ()
   (use-package help-fns+
@@ -240,16 +242,25 @@
     :init (spacemacs/set-leader-keys "ji" 'imenu)))
 
 (defun spacemacs-base/init-linum ()
-  (when dotspacemacs-line-numbers
-    (add-hook 'prog-mode-hook 'linum-mode)
-    (add-hook 'text-mode-hook 'linum-mode))
-  (setq linum-format "%4d")
-  (spacemacs|add-toggle line-numbers
-    :mode linum-mode
-    :documentation "Show the line numbers."
-    :evil-leader "tn")
-  (advice-add #'linum-update-window
-              :after #'spacemacs/linum-update-window-scale-fix))
+  (use-package linum
+    :init
+    (progn
+      (setq linum-format "%4d")
+      (spacemacs|add-toggle line-numbers
+        :mode linum-mode
+        :documentation "Show the line numbers."
+        :evil-leader "tn")
+      (advice-add #'linum-update-window
+                  :after #'spacemacs//linum-update-window-scale-fix)
+      (advice-add #'linum-on
+                  :around #'spacemacs//linum-on))
+    :config
+    (progn
+      (when (spacemacs//linum-backward-compabitility)
+        (add-hook 'prog-mode-hook 'linum-mode)
+        (add-hook 'text-mode-hook 'linum-mode))
+      (when dotspacemacs-line-numbers
+        (global-linum-mode)))))
 
 (defun spacemacs-base/init-occur-mode ()
   (evilified-state-evilify-map occur-mode-map
@@ -329,27 +340,26 @@
             projectile-known-projects-file (concat spacemacs-cache-directory
                                                    "projectile-bookmarks.eld"))
       (spacemacs/set-leader-keys
-        "pb" 'projectile-switch-to-buffer
-        "pd" 'projectile-find-dir
-        "pf" 'projectile-find-file
-        "pF" 'projectile-find-file-dwim
-        "ph" 'helm-projectile
-        "pr" 'projectile-recentf
-        "pp" 'projectile-switch-project
-        "pv" 'projectile-vc)
-      (spacemacs/set-leader-keys
         "p!" 'projectile-run-shell-command-in-root
         "p&" 'projectile-run-async-shell-command-in-root
         "p%" 'projectile-replace-regexp
         "pa" 'projectile-toggle-between-implementation-and-test
+        "pb" 'projectile-switch-to-buffer
         "pc" 'projectile-compile-project
+        "pd" 'projectile-find-dir
         "pD" 'projectile-dired
+        "pe" 'projectile-edit-dir-locals
+        "pf" 'projectile-find-file
+        "pF" 'projectile-find-file-dwim
         "pg" 'projectile-find-tag
-        "p C-g" 'projectile-regenerate-tags
+        "pG" 'projectile-regenerate-tags
         "pI" 'projectile-invalidate-cache
         "pk" 'projectile-kill-buffers
+        "pp" 'projectile-switch-project
+        "pr" 'projectile-recentf
         "pR" 'projectile-replace
-        "pT" 'projectile-test-project))
+        "pT" 'projectile-test-project
+        "pv" 'projectile-vc))
     :config
     (progn
       (projectile-global-mode)
@@ -372,8 +382,8 @@
     :config
     (progn
       (add-to-list 'recentf-exclude
-                   (expand-file-name spacemacs-cache-directory))
-      (add-to-list 'recentf-exclude (expand-file-name package-user-dir))
+                   (file-truename spacemacs-cache-directory))
+      (add-to-list 'recentf-exclude (file-truename package-user-dir))
       (add-to-list 'recentf-exclude "COMMIT_EDITMSG\\'"))))
 
 (defun spacemacs-base/init-savehist ()
@@ -527,5 +537,34 @@
       (setq winner-boring-buffers
             (append winner-boring-buffers spacemacs/winner-boring-buffers))
       (winner-mode t))))
+
+(defun spacemacs-base/init-zone ()
+  (require 'zone)
+  (when (and dotspacemacs-zone-out-when-idle
+             (numberp dotspacemacs-zone-out-when-idle))
+    (zone-when-idle dotspacemacs-zone-out-when-idle))
+  ;; remove not interesting programs
+  (setq zone-programs [
+                       ;; zone-pgm-jitter
+                       zone-pgm-putz-with-case
+                       zone-pgm-dissolve
+                       ;; zone-pgm-explode
+                       zone-pgm-whack-chars
+                       zone-pgm-rotate
+                       zone-pgm-rotate-LR-lockstep
+                       zone-pgm-rotate-RL-lockstep
+                       zone-pgm-rotate-LR-variable
+                       zone-pgm-rotate-RL-variable
+                       zone-pgm-drip
+                       ;; zone-pgm-drip-fretfully
+                       ;; zone-pgm-five-oclock-swan-dive
+                       ;; zone-pgm-martini-swan-dive
+                       zone-pgm-rat-race
+                       zone-pgm-paragraph-spaz
+                       ;; zone-pgm-stress
+                       ;; zone-pgm-stress-destress
+                       ;; zone-pgm-random-life
+                       ])
+  (spacemacs/set-leader-keys "TZ" 'zone))
 
 (defun spacemacs-base/init-centered-buffer-mode ())

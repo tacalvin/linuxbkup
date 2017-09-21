@@ -1,6 +1,6 @@
 ;;; funcs.el --- Python Layer functions File for Spacemacs
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Sylvain Benner <sylvain.benner@gmail.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -9,12 +9,26 @@
 ;;
 ;;; License: GPLv3
 
+(defun spacemacs//python-default ()
+  "Defaut settings for python buffers"
+  (setq mode-name "Python"
+        tab-width python-tab-width
+        fill-column python-fill-column)
+  (when (version< emacs-version "24.5")
+    ;; auto-indent on colon doesn't work well with if statement
+    ;; should be fixed in 24.5 and above
+    (setq electric-indent-chars (delq ?: electric-indent-chars)))
+  (setq-local comment-inline-offset 2)
+  (spacemacs/python-annotate-pdb)
+  ;; make C-j work the same way as RET
+  (local-set-key (kbd "C-j") 'newline-and-indent))
+
 ;; from http://pedrokroger.net/2010/07/configuring-emacs-as-a-python-ide-2/
 (defun spacemacs/python-annotate-pdb ()
   "Highlight break point lines."
   (interactive)
-  (highlight-lines-matching-regexp "import i?pu?db")
-  (highlight-lines-matching-regexp "i?pu?db.set_trace()"))
+  (highlight-lines-matching-regexp "import \\(pdb\\|ipdb\\|pudb\\|wdb\\)")
+  (highlight-lines-matching-regexp "\\(pdb\\|ipdb\\|pudb\\|wdb\\).set_trace()"))
 
 (defun spacemacs/pyenv-executable-find (command)
   "Find executable taking pyenv shims into account."
@@ -22,10 +36,10 @@
       (progn
         (let ((pyenv-string (shell-command-to-string (concat "pyenv which " command))))
           (unless (string-match "not found" pyenv-string)
-            pyenv-string)))
+            (string-trim pyenv-string))))
     (executable-find command)))
 
-(defun spacemacs/python-setup-shell (&rest args)
+(defun spacemacs//python-setup-shell (&rest args)
   (if (spacemacs/pyenv-executable-find "ipython")
       (progn (setq python-shell-interpreter "ipython")
              (if (version< (replace-regexp-in-string "\n$" "" (shell-command-to-string "ipython --version")) "5")
@@ -35,20 +49,41 @@
       (setq python-shell-interpreter-args "-i")
       (setq python-shell-interpreter "python"))))
 
+(defun spacemacs//python-setup-hy (&rest args)
+  (setq hy-mode-inferior-lisp-command
+        (concat (or (spacemacs/pyenv-executable-find "hy") "hy")
+                " --spy")))
+
+(defun spacemacs//python-setup-checkers (&rest args)
+  (when (fboundp 'flycheck-set-checker-executable)
+    (let ((pylint (spacemacs/pyenv-executable-find "pylint"))
+          (flake8 (spacemacs/pyenv-executable-find "flake8")))
+      (when pylint
+        (flycheck-set-checker-executable "python-pylint" pylint))
+      (when flake8
+        (flycheck-set-checker-executable "python-flake8" flake8)))))
+
+(defun spacemacs/python-setup-everything (&rest args)
+  (apply 'spacemacs//python-setup-shell args)
+  (apply 'spacemacs//python-setup-hy args)
+  (apply 'spacemacs//python-setup-checkers args))
+
 (defun spacemacs/python-toggle-breakpoint ()
   "Add a break point, highlight it."
   (interactive)
   (let ((trace (cond ((spacemacs/pyenv-executable-find "wdb") "import wdb; wdb.set_trace()")
                      ((spacemacs/pyenv-executable-find "ipdb") "import ipdb; ipdb.set_trace()")
                      ((spacemacs/pyenv-executable-find "pudb") "import pudb; pudb.set_trace()")
+                     ((spacemacs/pyenv-executable-find "ipdb3") "import ipdb; ipdb.set_trace()")
+                     ((spacemacs/pyenv-executable-find "pudb3") "import pudb; pudb.set_trace()")
                      (t "import pdb; pdb.set_trace()")))
         (line (thing-at-point 'line)))
     (if (and line (string-match trace line))
         (kill-whole-line)
       (progn
         (back-to-indentation)
-        (insert-string trace)
-        (insert-string "\n")
+        (insert trace)
+        (insert "\n")
         (python-indent-line)))))
 
 ;; from https://www.snip2code.com/Snippet/127022/Emacs-auto-remove-unused-import-statemen
@@ -73,12 +108,27 @@
              (version
               (with-temp-buffer
                 (insert-file-contents-literally file-path)
-                (buffer-substring-no-properties (line-beginning-position)
-                                                (line-end-position)))))
+                (nth 0 (split-string (buffer-substring-no-properties
+                                       (line-beginning-position)
+                                       (line-end-position)))))))
         (if (member version (pyenv-mode-versions))
             (pyenv-mode-set version)
           (message "pyenv: version `%s' is not installed (set by %s)"
                    version file-path))))))
+
+(defun spacemacs//pyvenv-mode-set-local-virtualenv ()
+  "Set pyvenv virtualenv from \".venv\" by looking in parent directories."
+  (interactive)
+  (let ((root-path (locate-dominating-file default-directory
+                                           ".venv")))
+    (when root-path
+      (let* ((file-path (expand-file-name ".venv" root-path))
+             (virtualenv
+              (with-temp-buffer
+                (insert-file-contents-literally file-path)
+                (buffer-substring-no-properties (line-beginning-position)
+                                                (line-end-position)))))
+            (pyvenv-workon virtualenv)))))
 
 
 ;; Tests
@@ -115,10 +165,14 @@ when this mode is enabled since the minibuffer is cleared all the time."
 ARG is the universal-argument which chooses between the main and
 the secondary test runner. FUNCALIST is an alist of the function
 to be called for each testrunner. "
-  (let ((test-runner (if arg
-                         (spacemacs//python-get-secondary-testrunner)
-                       (spacemacs//python-get-main-testrunner))))
-    (funcall (cdr (assoc test-runner funcalist)))))
+  (let* ((test-runner (if arg
+                          (spacemacs//python-get-secondary-testrunner)
+                        (spacemacs//python-get-main-testrunner)))
+         (test-function (assq test-runner funcalist)))
+    (if test-function
+        (funcall (cdr (assoc test-runner funcalist)))
+      (user-error "This test function is not available with the `%S' runner."
+                  test-runner))))
 
 (defun spacemacs/python-test-all (arg)
   "Run all tests."
@@ -146,6 +200,16 @@ to be called for each testrunner. "
    '((pytest . pytest-pdb-module)
      (nose . nosetests-pdb-module))))
 
+(defun spacemacs/python-test-suite (arg)
+  "Run all tests in the current suite."
+  (interactive "P")
+  (spacemacs//python-call-correct-test-function arg '((nose . nosetests-suite))))
+
+(defun spacemacs/python-test-pdb-suite (arg)
+  "Run all tests in the current suite in debug mode."
+  (interactive "P")
+  (spacemacs//python-call-correct-test-function arg '((nose . nosetests-pdb-suite))))
+
 (defun spacemacs/python-test-one (arg)
   "Run current test."
   (interactive "P")
@@ -169,7 +233,9 @@ to be called for each testrunner. "
     "tT" 'spacemacs/python-test-pdb-one
     "tt" 'spacemacs/python-test-one
     "tM" 'spacemacs/python-test-pdb-module
-    "tm" 'spacemacs/python-test-module))
+    "tm" 'spacemacs/python-test-module
+    "tS" 'spacemacs/python-test-pdb-suite
+    "ts" 'spacemacs/python-test-suite))
 
 (defun spacemacs//python-sort-imports ()
   ;; py-isort-before-save checks the major mode as well, however we can prevent
@@ -177,3 +243,97 @@ to be called for each testrunner. "
   (when (and python-sort-imports-on-save
              (derived-mode-p 'python-mode))
     (py-isort-before-save)))
+
+
+;;* Anaconda
+(defun spacemacs/anaconda-view-forward-and-push ()
+  "Find next button and hit RET"
+  (interactive)
+  (forward-button 1)
+  (call-interactively #'push-button))
+
+
+;; REPL
+
+(defun spacemacs//inferior-python-setup-hook ()
+  "Setup REPL for python inferior process buffer."
+  (setq indent-tabs-mode t))
+
+(defun spacemacs/python-shell-send-buffer-switch ()
+  "Send buffer content to shell and switch to it in insert mode."
+  (interactive)
+  (python-shell-send-buffer)
+  (python-shell-switch-to-shell)
+  (evil-insert-state))
+
+(defun spacemacs/python-shell-send-defun-switch ()
+  "Send function content to shell and switch to it in insert mode."
+  (interactive)
+  (python-shell-send-defun nil)
+  (python-shell-switch-to-shell)
+  (evil-insert-state))
+
+(defun spacemacs/python-shell-send-region-switch (start end)
+  "Send region content to shell and switch to it in insert mode."
+  (interactive "r")
+  (python-shell-send-region start end)
+  (python-shell-switch-to-shell)
+  (evil-insert-state))
+
+(defun spacemacs/python-start-or-switch-repl ()
+  "Start and/or switch to the REPL."
+  (interactive)
+  (let ((shell-process
+         (or (python-shell-get-process)
+             ;; `run-python' has different return values and different
+             ;; errors in different emacs versions. In 24.4, it throws an
+             ;; error when the process didn't start, but in 25.1 it
+             ;; doesn't throw an error, so we demote errors here and
+             ;; check the process later
+             (with-demoted-errors "Error: %S"
+               ;; in Emacs 24.5 and 24.4, `run-python' doesn't return the
+               ;; shell process
+               (call-interactively #'run-python)
+               (python-shell-get-process)))))
+    (unless shell-process
+      (error "Failed to start python shell properly"))
+    (pop-to-buffer (process-buffer shell-process))
+    (evil-insert-state)))
+
+(defun spacemacs/python-execute-file (arg)
+  "Execute a python script in a shell."
+  (interactive "P")
+  ;; set compile command to buffer-file-name
+  ;; universal argument put compile buffer in comint mode
+  (let ((universal-argument t)
+        (compile-command (format "%s %s"
+                                 (spacemacs/pyenv-executable-find python-shell-interpreter)
+                                 (file-name-nondirectory buffer-file-name))))
+    (if arg
+        (call-interactively 'compile)
+      (compile compile-command t)
+      (with-current-buffer (get-buffer "*compilation*")
+        (inferior-python-mode)))))
+
+(defun spacemacs/python-execute-file-focus (arg)
+  "Execute a python script in a shell and switch to the shell buffer in
+ `insert state'."
+  (interactive "P")
+  (spacemacs/python-execute-file arg)
+  (switch-to-buffer-other-window "*compilation*")
+  (end-of-buffer)
+  (evil-insert-state))
+
+;; fix for issue #2569 (https://github.com/syl20bnr/spacemacs/issues/2569)
+(when (version< emacs-version "25")
+  (advice-add 'wisent-python-default-setup :after
+              #'spacemacs//python-imenu-create-index-use-semantic-maybe))
+
+
+;; Eldoc
+
+(defun spacemacs//init-eldoc-python-mode ()
+  "Initialize elddoc for python buffers"
+  (eldoc-mode)
+  (when (configuration-layer/package-used-p 'anaconda-mode)
+    (anaconda-eldoc-mode)))

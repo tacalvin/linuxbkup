@@ -1,6 +1,6 @@
 ;;; packages.el --- Vagrant Layer packages File for Spacemacs
 ;;
-;; Copyright (c) 2012-2016 Sylvain Benner & Contributors
+;; Copyright (c) 2012-2017 Sylvain Benner & Contributors
 ;;
 ;; Author: Brian Hicks <brian@brianthicks.com>
 ;; URL: https://github.com/syl20bnr/spacemacs
@@ -16,17 +16,17 @@
     :defer t
     :init
     (progn
-      (spacemacs/declare-prefix "V" "vagrant")
+      (spacemacs/declare-prefix "aV" "vagrant")
       (spacemacs/set-leader-keys
-        "VD" 'vagrant-destroy
-        "Ve" 'vagrant-edit
-        "VH" 'vagrant-halt
-        "Vp" 'vagrant-provision
-        "Vr" 'vagrant-resume
-        "VR" 'vagrant-reload
-        "Vs" 'vagrant-status
-        "VS" 'vagrant-suspend
-        "VV" 'vagrant-up))))
+        "aVD" 'vagrant-destroy
+        "aVe" 'vagrant-edit
+        "aVH" 'vagrant-halt
+        "aVp" 'vagrant-provision
+        "aVr" 'vagrant-resume
+        "aVR" 'vagrant-reload
+        "aVs" 'vagrant-status
+        "aVS" 'vagrant-suspend
+        "aVV" 'vagrant-up))))
 
 (defun vagrant/init-vagrant-tramp ()
   (use-package vagrant-tramp
