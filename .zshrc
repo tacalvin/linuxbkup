@@ -11,6 +11,19 @@ ZSH_THEME="agnoster"
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
+export TERM=xterm
+export JAVA_HOME=/usr/lib/jvm/default/
+#export PATH=/home/cta/anaconda3/bin:$PATH
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$PATH:/opt/apache-spark/bin/"
+export RUST_SRC_PATH="$(rustc --print sysroot)/lib/rustlib/src/rust/src"
+
+export QT_SELECT=5
+
+#Set colors from wal
+source "${HOME}/.cache/wal/colors.sh"
+# Import colorscheme from 'wal'
+(cat ~/.cache/wal/sequences &)
 
 # Uncomment the following line to use hyphen-insensitive completion. Case
 # sensitive completion must be off. _ and - will be interchangeable.
@@ -46,16 +59,18 @@ ZSH_THEME="agnoster"
 
 # Would you like to use another custom folder than $ZSH/custom?
 # ZSH_CUSTOM=/path/to/new-custom-folder
-
+#export LD_LIBRARY_PATH=/usr/lib
 # Which plugins would you like to load? (plugins can be found in ~/.oh-my-zsh/plugins/*)
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git, battery)
 
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
+export LD_LIBRARY_PATH=/usr/local/mpi/
+export SPARK_HOME=/opt/apache-spark/
 
 # export MANPATH="/usr/local/man:$MANPATH"
 
@@ -74,7 +89,17 @@ source $ZSH/oh-my-zsh.sh
 
 # ssh
 # export SSH_KEY_PATH="~/.ssh/rsa_id"
-
+ros-start(){
+docker run -it --env="DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" -v /home/$(whoami)/ros:/ros --device /dev/video0 --device /dev/dri osrf/ros:kinetic-desktop-full bash -c "cp /ros/.bashrc /root/.bashrc && bash"
+}
+ 
+ros-connect(){
+docker exec -ti $(docker ps -aq --filter ancestor=osrf/ros:kinetic-desktop-full --filter status=running) bash
+}
+ 
+ros-clean(){
+docker rm $(docker ps -aq --filter ancestor=osrf/ros:kinetic-desktop-full --filter status=exited)
+}
 # Set personal aliases, overriding those provided by oh-my-zsh libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-zsh
 # users are encouraged to define aliases within the ZSH_CUSTOM folder.
@@ -82,8 +107,27 @@ source $ZSH/oh-my-zsh.sh
 #
 #export PATH=/home/cta/anaconda3/bin:$PATH:$HOME/.cargo/bin
 #export RUST_SRC_PATH=/home/cta/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/src
+source /opt/anaconda/bin/activate
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias vi='vim'
-alias ls='ls --color=auto -a'
+alias ls='ls --color=auto'
+alias lsa='ls --color=auto -a'
+alias pip3='pip'
+alias scala='scala -usejavacp'
+alias htb='sudo openvpn ~/.vpnconfigs/cta.ovpn'
+alias update='sudo pacman -Syu | lolcat'
+alias snotebook='$SPARK_PATH/bin/pyspark --master local[2]'
+
+function snotebook ()
+{
+
+#Spark path (based on your computer)
+SPARK_PATH=/opt/apache-spark/
+export PYSPARK_DRIVER_PYTHON="jupyter"
+export PYSPARK_DRIVER_PYTHON_OPTS="notebook"
+
+$SPARK_PATH/bin/pyspark --master local[2]
+
+}
